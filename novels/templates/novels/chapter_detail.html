@@ -11,36 +11,7 @@
         </ol>
     </nav>
 
-    <!-- 章节标题卡片 -->
-    <div class="card chapter-title-card mb-4">
-        <div class="card-body text-center">
-            <h1 class="chapter-title mb-2">{{ chapter.title }}</h1>
-            <div class="chapter-info text-muted">
-                <span><i class="fas fa-book me-2"></i>{{ chapter.novel.title }}</span>
-                <span class="mx-3">|</span>
-                <span><i class="fas fa-user me-2"></i>{{ chapter.novel.author }}</span>
-                <span class="mx-3">|</span>
-                <span><i class="fas fa-clock me-2"></i>{{ chapter.created_at|date:"Y-m-d H:i" }}</span>
-            </div>
-            <!-- 添加小说简介 -->
-            <div class="novel-intro mt-3 text-start">
-                <div class="row">
-                    <div class="col-md-3">
-                        {% if chapter.novel.cover %}
-                            <img src="{{ chapter.novel.cover }}" alt="{{ chapter.novel.title }}" class="img-fluid rounded">
-                        {% else %}
-                            <div class="no-cover rounded">暂无封面</div>
-                        {% endif %}
-                    </div>
-                    <div class="col-md-9">
-                        <h5 class="mb-3">作品简介：</h5>
-                        <p class="text-muted">{{ chapter.novel.description|default:"暂无简介" }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    
     <!-- 主题切换按钮 -->
     <div class="theme-switcher d-flex align-items-center">
         <span class="me-2" style="font-size: 0.9em;">主题：</span>
