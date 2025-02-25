@@ -1,0 +1,11 @@
+<div class="card">
+    <div class="card-header">分类导航</div>
+    <div class="list-group list-group-flush">
+        {% for cate in categories %}
+        <a href="{% url 'category' cate.id %}" 
+           class="list-group-item list-group-item-action {% if cate.id == category.id %}active{% endif %}">
+            {{ cate.name }}
+        </a>
+        {% endfor %}
+    </div>
+</div>

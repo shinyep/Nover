@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block content %}
+<div id="content-main">
+    <form action="" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <div>
+                    <label for="id_txt_file">选择TXT文件：</label>
+                    <input type="file" name="txt_file" id="id_txt_file" accept=".txt" required>
+                    <p class="help">请上传UTF-8编码的TXT文件，文件名格式：书名-作者.txt</p>
+                </div>
+            </div>
+        </fieldset>
+        <div class="submit-row">
+            <input type="submit" value="上传并处理" class="default">
+        </div>
+    </form>
+</div>
+{% endblock %} 

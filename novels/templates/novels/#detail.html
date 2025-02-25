@@ -1,0 +1,51 @@
+<!-- novels/templates/novels/detail.html -->
+{% extends "novels/base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- 主内容区 -->
+        <div class="col-md-8">
+            <!-- 封面、简介与作者信息 -->
+            <div class="card mb-4">
+                <div class="row g-0">
+                    <div class="col-md-4">
+                        <img src="{{ novel.cover.url }}" class="img-fluid rounded-start h-100" alt="{{ novel.title }} 封面">
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card-body">
+                            <h1 class="card-title">{{ novel.title }}</h1>
+                            <p class="card-text text-muted">作者：{{ novel.author }}</p>
+                            <!-- 简介显示部分 -->
+                            <div class="mb-2">
+                                {% if novel.intro %}
+                                    <p class="card-text">{{ novel.intro }}</p>
+                                {% else %}
+                                    <p class="card-text text-muted">暂无简介</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 章节列表 -->
+            <div class="card">
+                <div class="card-header">
+                    <h4>章节列表（共 {{ novel.chapters.count }} 章）</h4>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for chapter in novel.chapters.all %}
+                        <li class="list-group-item">
+                            <a href="{% url 'novels:chapter_detail' chapter.id %}">
+                                第{{ chapter.order }}章 {{ chapter.title }}
+                            </a>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item">暂无章节</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

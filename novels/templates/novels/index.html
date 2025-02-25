@@ -1,0 +1,120 @@
+{% extends "novels/base.html" %}
+
+{% block content %}
+<div class="container">
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+        <a class="navbar-brand" href="{% url 'novels:index' %}"></a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav">
+                {% for category in categories %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'novels:category' category.id %}">{{ category.name }}</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </nav>
+
+    <!-- 推荐小说 -->
+    <section class="recommend-novels mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="card-title mb-0">推荐小说</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for novel in recommended_novels %}
+                    <div class="col-md-3 mb-3">
+                        <div class="novel-card">
+                            <div class="novel-cover">
+                                {% if novel.cover %}
+                                    <img src="{{ novel.cover }}" alt="{{ novel.title }}">
+                                {% else %}
+                                    <div class="no-cover">暂无封面</div>
+                                {% endif %}
+                            </div>
+                            <div class="novel-info">
+                                <h3 class="novel-title">
+                                    <a href="{% url 'novels:novel_detail' novel.id %}">{{ novel.title }}</a>
+                                </h3>
+                                <div class="novel-meta">
+                                    <span>{{ novel.author }}</span>
+                                    <span>{{ novel.category.name }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12">
+                        <div class="no-data">暂无推荐小说</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 最新小说 -->
+    <section class="latest-novels mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="card-title mb-0">最新小说</h3>
+            </div>
+            <div class="card-body">
+                <div class="novel-grid">
+                    {% for novel in latest_novels %}
+                    <div class="novel-card">
+                        <div class="novel-cover">
+                            {% if novel.cover %}
+                                <img src="{{ novel.cover }}" alt="{{ novel.title }}">
+                            {% else %}
+                                <div class="no-cover">暂无封面</div>
+                            {% endif %}
+                        </div>
+                        <div class="novel-info">
+                            <h3 class="novel-title">
+                                <a href="{% url 'novels:novel_detail' novel.id %}">{{ novel.title }}</a>
+                            </h3>
+                            <div class="novel-meta">
+                                <span>{{ novel.author }}</span>
+                                <span>{{ novel.category.name }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="no-data">暂无小说</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 最新章节 -->
+    <section class="latest-chapters">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="card-title mb-0">最新章节</h3>
+            </div>
+            <div class="card-body">
+                {% for chapter in latest_chapters %}
+                <div class="chapter-item">
+                    <a href="{% url 'novels:chapter_detail' chapter.id %}" class="chapter-link">
+                        <span class="novel-title">
+                            <i class="fas fa-book me-2"></i>
+                            {{ chapter.novel.title }}
+                        </span>
+                        <span class="chapter-title">
+                            <i class="fas fa-angle-right me-2"></i>
+                            {{ chapter.title }}
+                        </span>
+                    </a>
+                </div>
+                {% empty %}
+                <p class="no-data">暂无最新章节</p>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

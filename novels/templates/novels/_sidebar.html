@@ -1,0 +1,34 @@
+<div class="sidebar">
+    <!-- 分类导航 -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-info text-white">小说分类</div>
+        <div class="list-group list-group-flush">
+            {% for category in categories %}
+            <a href="{% url 'novels:category' category.id %}" 
+               class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                {{ category.name }}
+                <span class="badge bg-primary rounded-pill">{{ category.novel_set.count }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 推荐小说 -->
+    {% if recommend_novels %}
+    <div class="card shadow-sm">
+        <div class="card-header bg-warning">编辑推荐</div>
+        <div class="card-body">
+            {% for novel in recommend_novels %}
+            <div class="mb-3">
+                <a href="{% url 'novels:novel_detail' novel.id %}" class="text-decoration-none">
+                    <img src="{{ novel.cover.url }}" 
+                         class="img-fluid rounded" 
+                         style="height:120px;object-fit:cover">
+                    <h6 class="mt-2 text-dark">{{ novel.title }}</h6>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>

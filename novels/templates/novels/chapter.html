@@ -1,0 +1,57 @@
+{% extends "novels/base.html" %}
+{% block title %}{{ chapter.title }} - {{ chapter.novel.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- 章节内容 -->
+    <div class="col-md-11">
+        <div class="card">
+            <div class="card-body" style="background-color: rgb(218, 216, 196);">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{% url 'novels:novel_detail' chapter.novel.id %}" style="text-decoration: none;">{{ chapter.novel.title }}</a>
+                        </li>
+                        <li class="breadcrumb-item active" aria-current="page">{{ chapter.title }}</li>
+                    </ol>
+                </nav>
+
+                <div class="text-center mb-4">
+                    <h2>{{ chapter.title }}</h2>
+                </div>
+
+                <div class="chapter-content" style="text-indent: 2em;font-size: 24px;">
+                    {{ chapter.content|linebreaks }}
+                </div>
+
+                <!-- 章节列表 -->
+                <div class="chapter-list row mt-4">
+                    {% for chapter in novel.chapter_set.all %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card" style="border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                            <div class="card-body" style="padding: 10px; background-color: #fff;">
+                                <a href="{% url 'novels:chapter_detail' chapter.id %}" style="text-decoration: none; color: #333;">
+                                    {{ chapter.title }}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="text-center mt-4">
+                    <div class="btn-group mt-2">
+                        {% if prev_chapter %}
+                        <a href="{% url 'novels:chapter_detail' prev_chapter.id %}" class="btn btn-outline-primary">上一章</a>
+                        {% endif %}
+                        <a href="{% url 'novels:novel_detail' chapter.novel.id %}" class="btn btn-outline-secondary">返回目录</a>
+                        {% if next_chapter %}
+                        <a href="{% url 'novels:chapter_detail' next_chapter.id %}" class="btn btn-outline-primary">下一章</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "novels/base.html" %}
+
+{% block content %}
+<div class="container">
+    <!-- 面包屑导航 -->
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'novels:index' %}">首页</a></li>
+            <li class="breadcrumb-item active">{{ novel.title }}</li>
+        </ol>
+    </nav>
+
+    <!-- 小说详情 -->
+    <div class="card novel-detail">
+        <div class="card-body">
+            <div class="row">
+                <!-- 封面 -->
+                <div class="col-md-3">
+                    <div class="novel-cover">
+                        {% if novel.cover %}
+                            <img src="{{ novel.cover }}" class="img-fluid" alt="{{ novel.title }}">
+                        {% else %}
+                            <div class="no-cover">暂无封面</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 信息 -->
+                <div class="col-md-9">
+                    <h1 class="novel-title">{{ novel.title }}</h1>
+                    <div class="novel-meta mb-3">
+                        <span><i class="fas fa-user me-2"></i>{{ novel.author }}</span>
+                        <span class="mx-2">|</span>
+                        <span><i class="fas fa-folder me-2"></i>
+                            <a href="{% url 'novels:category' novel.category.id %}">{{ novel.category.name }}</a>
+                        </span>
+                        <span class="mx-2">|</span>
+                        <span><i class="fas fa-book me-2"></i>{{ novel.chapter_count }} 章</span>
+                        <span class="mx-2">|</span>
+                        <span><i class="fas fa-clock me-2"></i>{{ novel.updated_at|date:"Y-m-d H:i" }}</span>
+                    </div>
+
+                    <!-- 下载按钮 -->
+                    <div class="download-section">
+                        <a href="{% url 'novels:download_novel' novel.id %}" 
+                           class="btn btn-primary btn-lg"
+                           download="{{ novel.title }}.txt">
+                            <i class="fas fa-download"></i> 下载全本
+                        </a>
+                    </div>
+
+                    <!-- 简介 -->
+                    <div class="novel-intro">
+                        <h5><i class="fas fa-info-circle me-2"></i>简介：</h5>
+                        <p>{{ novel.intro|default:"暂无简介"|linebreaks }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 章节列表 -->
+    <div class="chapter-list mt-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">章节列表</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for chapter in chapters %}
+                    <div class="col-md-4">
+                        <a href="{% url 'novels:chapter_detail' chapter.id %}" 
+                           class="chapter-link">
+                            <div class="chapter-item">
+                                <span class="chapter-title-text">
+                                    <i class="fas fa-book-reader me-2"></i>
+                                    {{ chapter.title }}
+                                </span>
+                            </div>
+                        </a>
+                    </div>
+                    {% empty %}
+                    <div class="col">
+                        <p class="no-data">暂无章节</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

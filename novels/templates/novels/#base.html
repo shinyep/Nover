@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}小说站{% endblock %}</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background:#f8f9fa; }
+        .chapter-content { line-height:1.8; font-size:16px; }
+        .sidebar {
+            width: 300px;
+            flex-shrink: 0;
+        }
+        .main-content {
+            flex-grow: 1;
+            max-width: calc(100% - 320px);
+        }
+    </style>
+</head>
+<body>
+<nav class="navbar bg-light shadow-sm">
+    <div class="container">
+        <a class="navbar-brand" href="/">我的小说站</a>
+    </div>
+</nav>
+<div class="container mt-4 d-flex">
+    <!-- 侧边栏 -->
+    {% include "novels/_sidebar.html" %}
+    
+    <!-- 主要内容 -->
+    <div class="flex-grow-1">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+</body>
+</html>

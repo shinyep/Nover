@@ -1,0 +1,10 @@
+# Web框架
+Django>=4.2.0  # Django框架
+
+# 图片处理
+Pillow>=10.0.0  # 图片处理库
+
+# 爬虫依赖
+pyppeteer==1.0.2  # 浏览器自动化
+pyppeteer-stealth==2.7.4  # 反爬虫检测
+pymysql==1.1.0  # MySQL数据库连接 
