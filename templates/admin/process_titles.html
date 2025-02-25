@@ -1,0 +1,60 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<form action="" method="post">
+    {% csrf_token %}
+    
+    <div class="module">
+        <h2>处理章节标题</h2>
+        <p>您选择了 {{ queryset.count }} 个章节进行处理。</p>
+        
+        <fieldset class="module aligned">
+            <div class="form-row">
+                <label for="pattern">匹配模式（正则表达式）:</label>
+                <input type="text" id="pattern" name="pattern" required>
+                <div class="help">例如: \【.*?\】 将匹配【任意内容】</div>
+            </div>
+            
+            <div class="form-row">
+                <label for="action_type">操作类型:</label>
+                <select id="action_type" name="action_type">
+                    <option value="remove">移除匹配内容</option>
+                    <option value="replace">替换匹配内容</option>
+                </select>
+            </div>
+            
+            <div class="form-row" id="replace_row">
+                <label for="replace">替换为:</label>
+                <input type="text" id="replace" name="replace">
+                <div class="help">可以使用\1, \2等引用捕获组</div>
+            </div>
+        </fieldset>
+        
+        <div class="submit-row">
+            <input type="hidden" name="post" value="yes">
+            <input type="submit" value="执行" class="default">
+            <a href="{{ request.get_full_path }}" class="button cancel-link">取消</a>
+        </div>
+        
+        {% for obj in queryset %}
+        <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk }}">
+        {% endfor %}
+    </div>
+</form>
+
+<script>
+document.getElementById('action_type').addEventListener('change', function() {
+    var replaceRow = document.getElementById('replace_row');
+    if (this.value === 'remove') {
+        replaceRow.style.display = 'none';
+    } else {
+        replaceRow.style.display = 'block';
+    }
+});
+
+// 初始化
+if (document.getElementById('action_type').value === 'remove') {
+    document.getElementById('replace_row').style.display = 'none';
+}
+</script>
+{% endblock %} 

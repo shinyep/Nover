@@ -10,6 +10,9 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
 import io
+from django import forms
+from django.http import HttpResponseRedirect
+from django.template.response import TemplateResponse
 
 # 章节内联编辑
 class ChapterInline(admin.TabularInline):
@@ -221,10 +224,10 @@ class CategoryAdmin(admin.ModelAdmin):
 # 章节管理
 @admin.register(Chapter)
 class ChapterAdmin(admin.ModelAdmin):
-    list_display = ('novel', 'title', 'content_preview', 'created_at')
-    search_fields = ('title', 'content')
-    list_filter = ('novel',)
-    actions = ['clean_content', 'reprocess_paragraphs']
+    list_display = ('title', 'novel', 'content_preview', 'created_at')
+    list_filter = ['novel__title']
+    search_fields = ['title', 'novel__title']
+    actions = ['clean_content', 'reprocess_paragraphs', 'process_titles']
 
     def clean_content(self, request, queryset):
         for chapter in queryset:
@@ -285,6 +288,41 @@ class ChapterAdmin(admin.ModelAdmin):
         content = obj.content or ""
         return content[:50] + '...' if len(content) > 50 else content
     content_preview.short_description = "内容预览"
+
+    def process_titles(self, request, queryset):
+        # 如果是POST请求，处理表单
+        if request.POST.get('post') == 'yes':
+            pattern = request.POST.get('pattern')
+            replace = request.POST.get('replace')
+            action_type = request.POST.get('action_type')
+            
+            import re
+            updated = 0
+            
+            for chapter in queryset:
+                old_title = chapter.title
+                if action_type == 'remove':
+                    new_title = re.sub(pattern, '', old_title)
+                else:  # replace
+                    new_title = re.sub(pattern, replace, old_title)
+                    
+                if old_title != new_title:
+                    chapter.title = new_title
+                    chapter.save(update_fields=['title'])
+                    updated += 1
+            
+            self.message_user(request, f'成功更新了 {updated} 个章节标题')
+            return HttpResponseRedirect(request.get_full_path())
+            
+        # 显示表单
+        return TemplateResponse(request, 'admin/process_titles.html', {
+            'title': '处理章节标题',
+            'queryset': queryset,
+            'opts': self.model._meta,
+            'action_checkbox_name': admin.helpers.ACTION_CHECKBOX_NAME,
+        })
+    
+    process_titles.short_description = "处理选中章节的标题"
 
 @admin.register(FilterWord)
 class FilterWordAdmin(admin.ModelAdmin):

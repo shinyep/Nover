@@ -1,0 +1,49 @@
+<!-- 侧边栏 -->
+<div class="sidebar">
+    <!-- 推荐小说 -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">推荐小说</h5>
+        </div>
+        <div class="card-body">
+            <ul class="list-unstyled">
+                {% for novel in recommend_novels %}
+                <li class="mb-2">
+                    <a href="{% url 'novels:novel_detail' novel.id %}" class="d-flex align-items-center">
+                        {% if novel.cover %}
+                        <img src="{{ novel.cover }}" alt="{{ novel.title }}" class="sidebar-cover mr-2">
+                        {% else %}
+                        <div class="sidebar-cover-placeholder mr-2">无封面</div>
+                        {% endif %}
+                        <div>
+                            <h6 class="mb-0">{{ novel.title }}</h6>
+                            <small class="text-muted">{{ novel.author }}</small>
+                        </div>
+                    </a>
+                </li>
+                {% empty %}
+                <li>暂无推荐小说</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- 分类导航 -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">小说分类</h5>
+        </div>
+        <div class="card-body">
+            <ul class="list-group list-group-flush">
+                {% for category in categories %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{% url 'novels:category' category.id %}">{{ category.name }}</a>
+                    <span class="badge badge-primary badge-pill">{{ category.novel_count }}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item">暂无分类</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div> 

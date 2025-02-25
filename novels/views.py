@@ -7,6 +7,7 @@ from django.views.generic import DetailView
 from django.http import HttpResponse
 import os
 from urllib.parse import quote
+from django.db.models import Q
 
 def get_common_data():
     """公共上下文数据，带缓存优化"""
@@ -67,8 +68,9 @@ def category(request, category_id):
     return render(request, 'novels/category.html', context)
 
 def novel_detail(request, novel_id):
-    novel = Novel.objects.get(id=novel_id)
-    chapters = novel.chapters.order_by('id')  # 使用 id 替代 order
+    novel = get_object_or_404(Novel, id=novel_id)
+    # 确保按order字段排序
+    chapters = novel.chapters.all().order_by('order', 'id')
     
     context = {
         'novel': novel,
@@ -167,3 +169,33 @@ def download_novel(request, novel_id):
         return HttpResponse("小说不存在", status=404)
     except Exception as e:
         return HttpResponse(f"下载失败：{str(e)}", status=500)
+
+def search(request):
+    """搜索小说"""
+    query = request.GET.get('q', '')
+    
+    if query:
+        # 搜索小说标题和作者
+        novels = Novel.objects.filter(
+            Q(title__icontains=query) | 
+            Q(author__icontains=query)
+        ).distinct()
+        
+        # 搜索章节标题
+        chapters = Chapter.objects.filter(
+            title__icontains=query
+        ).select_related('novel').distinct()
+    else:
+        novels = Novel.objects.none()
+        chapters = Chapter.objects.none()
+    
+    context = {
+        'query': query,
+        'novels': novels,
+        'chapters': chapters,
+        'novel_count': novels.count(),
+        'chapter_count': chapters.count(),
+    }
+    context.update(get_common_data())
+    
+    return render(request, 'novels/search_results.html', context)

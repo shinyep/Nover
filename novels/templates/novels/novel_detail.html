@@ -67,7 +67,7 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    {% for chapter in chapters %}
+                    {% for chapter in novel.chapters.all|dictsort:"order" %}
                     <div class="col-md-4">
                         <a href="{% url 'novels:chapter_detail' chapter.id %}" 
                            class="chapter-link">

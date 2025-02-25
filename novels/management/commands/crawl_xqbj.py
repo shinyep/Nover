@@ -13,7 +13,7 @@ from fake_useragent import UserAgent
 
 # 配置信息
 BASE_URL = "https://d3syerwqkywh2y.cloudfront.net/"
-LIST_PAGE_URL = "https://d3syerwqkywh2y.cloudfront.net/nov/6/%E6%96%87%E5%AD%A6%E5%B0%8F%E8%AF%B4.html"
+LIST_PAGE_URL = "https://d3syerwqkywh2y.cloudfront.net/nov/6_0_3_popular_2/%E6%96%87%E5%AD%A6%E5%B0%8F%E8%AF%B4/%E5%85%A8%E9%83%A8.html"
 
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -26,8 +26,10 @@ WAIT_TIME = {
     'max': 5,
     'page_min': 5,
     'page_max': 10,
-    'click_min': 1,  # 点击等待最小时间
-    'click_max': 2   # 点击等待最大时间
+    'novel_min': 5,  # 处理每本小说前的最小等待时间
+    'novel_max': 10,  # 处理每本小说前的最大等待时间
+    'click_min': 1,
+    'click_max': 2
 }
 
 HEADERS = {
@@ -48,6 +50,17 @@ class Command(BaseCommand):
         self.main_page = None
         self.ua = UserAgent()
         self.last_request_time = time.time()
+
+    def extract_chapter_number(self, title):
+        """从章节标题中提取章节序号"""
+        match = re.search(r'第(\d+)章', title)
+        if match:
+            return int(match.group(1))
+        # 尝试其他可能的格式
+        numbers = re.findall(r'\d+', title)
+        if numbers:
+            return int(numbers[0])
+        return 0
 
     def print_status(self, stage, message, status=None):
         """打印带颜色的状态信息"""
@@ -173,6 +186,9 @@ class Command(BaseCommand):
         """处理单本小说"""
         self.print_status("小说处理", f"开始处理: {novel_info['title']}", "start")
         
+        # 增加处理每本小说前的随机等待
+        await self.random_sleep(WAIT_TIME['novel_min'], WAIT_TIME['novel_max'])
+        
         try:
             page = await self.browser.newPage()
             await page.setUserAgent(self.ua.random)
@@ -187,7 +203,7 @@ class Command(BaseCommand):
                 # 等待章节列表加载
                 await page.waitForSelector('.list')
                 
-                # 尝试从各种存储中获取章节列表
+                # 获取所有章节列表
                 all_chapters = await page.evaluate(r"""() => {
                     function getAllChapters() {
                         const chapters = [];
@@ -299,13 +315,253 @@ class Command(BaseCommand):
                     self.print_status("小说创建", "新建小说成功", "success")
                     chapters_to_process = all_chapters
 
-                # 处理需要更新的章节
+                # 记录处理失败的章节
+                failed_chapters = []
+                
+                # 处理需要下载的章节
                 for idx, chapter_info in enumerate(chapters_to_process, 1):
-                    chapter_page = await self.browser.newPage()
-                    await chapter_page.setUserAgent(self.ua.random)
-                    await chapter_page.setExtraHTTPHeaders(HEADERS)
+                    success = await self.process_chapter(novel, chapter_info, idx, len(chapters_to_process))
+                    if not success:
+                        # 记录失败的章节
+                        failed_chapters.append(chapter_info)
+
+                # 记录失败的章节到文件，便于后续处理
+                if failed_chapters:
+                    self.print_status("章节统计", f"有 {len(failed_chapters)} 章下载失败，已记录", "warning")
+                    await self.save_failed_chapters(novel.title, failed_chapters)
+                
+                # 再次检查是否有遗漏章节
+                await self.verify_chapters_completeness(novel, all_chapters)
                     
+                # 更新小说信息
+                current_chapter_count = await sync_to_async(lambda: Chapter.objects.filter(novel=novel).count())()
+                update_novel = sync_to_async(lambda n: setattr(n, 'intro', f'共{current_chapter_count}章') or n.save())
+                await update_novel(novel)
+                
+                return True
+
+            finally:
+                await page.close()
+
+        except Exception as e:
+            self.print_status("小说处理", f"处理失败: {str(e)}", "error")
+            return False
+
+    async def process_chapter(self, novel, chapter_info, idx, total):
+        """处理单个章节"""
+        max_retries = 3
+        retry_count = 0
+        
+        # 首先检查章节是否已存在
+        existing_chapter = await sync_to_async(lambda: Chapter.objects.filter(
+            novel=novel, 
+            title=chapter_info['title']
+        ).first())()
+        
+        if existing_chapter:
+            # 如果章节已存在，直接跳过
+            self.print_status("章节处理", f"章节已存在，跳过：{chapter_info['title']} ({idx}/{total})", "info")
+            return True
+        
+        while retry_count < max_retries:
+            try:
+                chapter_page = await self.browser.newPage()
+                await chapter_page.setUserAgent(self.ua.random)
+                await chapter_page.setExtraHTTPHeaders(HEADERS)
+                
+                await self.random_sleep()
+                await chapter_page.goto(chapter_info['url'], {
+                    'waitUntil': 'networkidle0',
+                    'timeout': 30000
+                })
+                
+                content = await chapter_page.evaluate('''() => {
+                    const content = document.querySelector('.novel-body');
+                    if (!content) return '';
+                    return Array.from(content.querySelectorAll('p'))
+                        .map(p => p.textContent.trim())
+                        .filter(text => text.length > 0)
+                        .map(text => '　　' + text)
+                        .join('\\n\\n');
+                }''')
+
+                if content:
+                    # 使用章节信息中的order值（如果有）
+                    chapter_order = chapter_info.get('order', self.extract_chapter_number(chapter_info['title']))
+                    
+                    # 创建新章节
+                    await sync_to_async(Chapter.objects.create)(
+                        novel=novel,
+                        title=chapter_info['title'],
+                        content=content,
+                        order=chapter_order  # 使用正确的排序值
+                    )
+                    self.print_status("章节下载", f"已下载：{chapter_info['title']} ({idx}/{total})", "success")
+                    break  # 成功处理，跳出重试循环
+                else:
+                    self.print_status("章节下载", f"章节内容为空：{chapter_info['title']}", "warning")
+                    retry_count += 1
+                    
+            except Exception as e:
+                retry_count += 1
+                self.print_status("章节下载", f"下载失败: {chapter_info['title']}\n                                    {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - {str(e)} (重试 {retry_count}/{max_retries})", "error")
+                
+                # 如果是唯一性约束错误，说明章节已存在但前面的检查没有捕获到
+                # 这可能是因为并发问题或数据库同步延迟
+                if "UNIQUE constraint failed" in str(e) and "novels_chapter.novel_id, novels_chapter.title" in str(e):
+                    self.print_status("章节处理", f"章节已存在（并发检测）：{chapter_info['title']}", "info")
+                    return True  # 视为成功，直接返回
+                
+                await self.random_sleep(2, 5)  # 失败后等待时间更长
+                
+            finally:
+                await chapter_page.close()
+        
+        # 如果所有重试都失败，记录到失败列表
+        if retry_count >= max_retries:
+            self.print_status("章节下载", f"章节 {chapter_info['title']} 下载失败，已达到最大重试次数", "error")
+            return False
+        
+        return True
+
+    async def save_failed_chapters(self, novel_title, failed_chapters):
+        """保存失败的章节信息到文件"""
+        import json
+        import os
+        
+        # 创建失败记录目录
+        os.makedirs('failed_chapters', exist_ok=True)
+        
+        # 文件名使用小说标题
+        safe_title = re.sub(r'[\\/*?:"<>|]', "_", novel_title)
+        filename = f'failed_chapters/{safe_title}.json'
+        
+        # 读取现有失败记录
+        existing_data = []
+        if os.path.exists(filename):
+            with open(filename, 'r', encoding='utf-8') as f:
+                try:
+                    existing_data = json.load(f)
+                except:
+                    pass
+        
+        # 合并新的失败记录
+        existing_urls = [item['url'] for item in existing_data]
+        for chapter in failed_chapters:
+            if chapter['url'] not in existing_urls:
+                existing_data.append(chapter)
+        
+        # 保存到文件
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(existing_data, f, ensure_ascii=False, indent=2)
+
+    async def verify_chapters_completeness(self, novel, all_chapters):
+        """验证章节完整性并按顺序补充缺失章节"""
+        # 获取数据库中的章节
+        db_chapters = await sync_to_async(lambda: list(Chapter.objects.filter(novel=novel).values('title', 'id', 'order')))()
+        
+        # 创建章节标题到ID的映射
+        db_chapter_map = {c['title']: c for c in db_chapters}
+        db_chapter_titles = set(db_chapter_map.keys())
+        
+        # 比较章节数量
+        self.print_status("章节信息", f"数据库中已有 {len(db_chapters)} 章", "info")
+        self.print_status("章节对比", f"发现 {len(all_chapters) - len(db_chapters)} 章需要更新", "info")
+        
+        # 如果章节数量相同，可能不需要更新
+        if len(all_chapters) == len(db_chapters) and all(c['title'] in db_chapter_titles for c in all_chapters):
+            self.print_status("章节完整性", "章节数量相同且标题匹配，无需更新", "success")
+            return
+        
+        # 找出缺失的章节
+        missing_chapters = []
+        for chapter in all_chapters:
+            if chapter['title'] not in db_chapter_titles:
+                chapter['number'] = self.extract_chapter_number(chapter['title'])
+                # 检查是否是番外章节
+                chapter['is_special'] = any(keyword in chapter['title'] for keyword in 
+                                           ['番外', '后记', '附录', '特别篇', '外传'])
+                missing_chapters.append(chapter)
+        
+        if not missing_chapters:
+            self.print_status("章节完整性", "所有章节已完整下载", "success")
+            return
+        
+        # 按章节类型和序号排序：正常章节在前，番外在后
+        missing_chapters.sort(key=lambda x: (1 if x['is_special'] else 0, x['number']))
+        
+        self.print_status("章节完整性", f"发现 {len(missing_chapters)} 章缺失，尝试补充下载", "warning")
+        
+        # 下载缺失的章节
+        failed_chapters = []
+        for idx, chapter_info in enumerate(missing_chapters, 1):
+            # 设置正确的order值
+            if chapter_info['is_special']:
+                # 番外章节使用大序号，确保排在最后
+                chapter_info['order'] = 1000000 + chapter_info['number']
+            else:
+                # 正常章节使用提取的序号
+                chapter_info['order'] = chapter_info['number']
+            
+            success = await self.process_chapter(novel, chapter_info, idx, len(missing_chapters))
+            if not success:
+                failed_chapters.append(chapter_info)
+
+    async def process_failed_chapters(self):
+        """处理之前失败的章节"""
+        import json
+        import os
+        import glob
+        
+        # 查找所有失败记录文件
+        failed_files = glob.glob('failed_chapters/*.json')
+        if not failed_files:
+            self.print_status("失败章节", "没有找到失败章节记录", "info")
+            return
+        
+        self.print_status("失败章节", f"找到 {len(failed_files)} 个小说有失败章节记录", "info")
+        
+        for file_path in failed_files:
+            try:
+                # 读取失败记录
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    failed_chapters = json.load(f)
+                
+                if not failed_chapters:
+                    continue
+                    
+                # 从文件名获取小说标题
+                novel_title = os.path.basename(file_path).replace('.json', '')
+                novel_title = re.sub(r'_+', " ", novel_title).strip()
+                
+                # 查找小说
+                novel = await sync_to_async(Novel.objects.filter(title__icontains=novel_title).first)()
+                if not novel:
+                    self.print_status("失败章节", f"找不到小说: {novel_title}", "warning")
+                    continue
+                    
+                self.print_status("失败章节", f"处理小说 '{novel.title}' 的 {len(failed_chapters)} 个失败章节", "info")
+                
+                # 获取已有章节
+                existing_chapters = await sync_to_async(lambda: list(Chapter.objects.filter(novel=novel).values_list('title', flat=True)))()
+                
+                # 过滤出尚未下载的章节
+                chapters_to_process = [c for c in failed_chapters if c['title'] not in existing_chapters]
+                
+                if not chapters_to_process:
+                    self.print_status("失败章节", f"小说 '{novel.title}' 的所有章节已下载完成", "success")
+                    # 删除空记录文件
+                    os.remove(file_path)
+                    continue
+                    
+                # 下载失败的章节
+                remaining_failed = []
+                for chapter_info in chapters_to_process:
                     try:
+                        chapter_page = await self.browser.newPage()
+                        await chapter_page.setUserAgent(self.ua.random)
+                        await chapter_page.setExtraHTTPHeaders(HEADERS)
+                        
                         await self.random_sleep()
                         await chapter_page.goto(chapter_info['url'], {
                             'waitUntil': 'networkidle0',
@@ -323,60 +579,81 @@ class Command(BaseCommand):
                         }''')
 
                         if content:
+                            # 提取章节序号
+                            chapter_num = self.extract_chapter_number(chapter_info['title'])
+                            
                             await sync_to_async(Chapter.objects.create)(
                                 novel=novel,
                                 title=chapter_info['title'],
-                                content=content
+                                content=content,
+                                order=chapter_num  # 设置排序值
                             )
-                            self.print_status("章节下载", f"已下载：{chapter_info['title']} ({idx}/{len(chapters_to_process)})", "success")
+                            self.print_status("章节恢复", f"已下载：{chapter_info['title']}", "success")
                         else:
-                            self.print_status("章节下载", f"章节内容为空：{chapter_info['title']}", "warning")
+                            self.print_status("章节恢复", f"章节内容为空：{chapter_info['title']}", "warning")
+                            remaining_failed.append(chapter_info)
 
                     except Exception as e:
-                        self.print_status("章节下载", f"下载失败: {str(e)}", "error")
+                        self.print_status("章节恢复", f"下载失败: {chapter_info['title']} - {str(e)}", "error")
+                        remaining_failed.append(chapter_info)
                     finally:
                         await chapter_page.close()
                         await self.random_sleep(1, 3)
-
-                # 更新小说信息
-                current_chapter_count = await sync_to_async(lambda: Chapter.objects.filter(novel=novel).count())()
-                update_novel = sync_to_async(lambda n: setattr(n, 'intro', f'共{current_chapter_count}章') or n.save())
-                await update_novel(novel)
                 
-                return True
+                # 更新失败记录
+                if remaining_failed:
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        json.dump(remaining_failed, f, ensure_ascii=False, indent=2)
+                    self.print_status("失败章节", f"小说 '{novel.title}' 还有 {len(remaining_failed)} 章下载失败", "warning")
+                else:
+                    # 删除空记录文件
+                    os.remove(file_path)
+                    self.print_status("失败章节", f"小说 '{novel.title}' 的所有失败章节已恢复", "success")
+                    
+            except Exception as e:
+                self.print_status("失败章节处理", f"处理文件 {file_path} 时出错: {str(e)}", "error")
 
-            finally:
-                await page.close()
-
-        except Exception as e:
-            self.print_status("小说处理", f"处理失败: {str(e)}", "error")
-            return False
-
-    async def run(self):
+    async def run(self, process_failed=False):
         """运行爬虫"""
         if not await self.init_browser():
             return
 
         try:
-            # 访问列表页前等待
-            await self.random_sleep(WAIT_TIME['page_min'], WAIT_TIME['page_max'])
-            await self.main_page.goto(LIST_PAGE_URL, {
-                'waitUntil': 'networkidle0',
-                'timeout': 30000
-            })
-            
-            # 直接解析和处理列表页
-            await self.parse_list_page()
+            if process_failed:
+                # 处理之前失败的章节
+                await self.process_failed_chapters()
+            else:
+                # 正常爬取流程
+                await self.random_sleep(WAIT_TIME['page_min'], WAIT_TIME['page_max'])
+                await self.main_page.goto(LIST_PAGE_URL, {
+                    'waitUntil': 'networkidle0',
+                    'timeout': 30000
+                })
+                
+                await self.parse_list_page()
 
         finally:
             if self.browser:
                 await self.browser.close()
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--failed',
+            action='store_true',
+            help='处理之前失败的章节'
+        )
+
     def handle(self, *args, **options):
         """命令入口"""
         self.print_status("爬虫启动", "开始运行", "start")
         try:
-            asyncio.run(self.run())
+            process_failed = options.get('failed', False)
+            if process_failed:
+                self.print_status("运行模式", "处理失败章节模式", "info")
+            else:
+                self.print_status("运行模式", "正常爬取模式", "info")
+            
+            asyncio.run(self.run(process_failed=process_failed))
         except KeyboardInterrupt:
             self.print_status("系统中断", "用户终止操作", "warning")
         except Exception as e:

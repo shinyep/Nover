@@ -1,8 +1,9 @@
 {% extends "novels/base.html" %}
 
 {% block content %}
+
 <div class="container">
-    <!-- 导航栏 -->
+     <!-- 导航栏 -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
         <a class="navbar-brand" href="{% url 'novels:index' %}"></a>
         <div class="collapse navbar-collapse">
@@ -16,7 +17,27 @@
         </div>
     </nav>
 
-    <!-- 推荐小说 -->
+        <!-- 搜索框 -->
+    <div class="row mb-4">
+        <div class="col-md-10"> <!-- 修改为 col-md-10 -->
+            <div class="search-box">
+                <form action="{% url 'novels:search' %}" method="GET" class="search-form">
+                    <div class="input-group">
+                        <input type="text" name="q" class="form-control" placeholder="搜索小说标题、作者..." aria-label="搜索小说" value="{{ request.GET.q|default:'' }}">
+                        <div class="input-group-append">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-search"></i> 搜索
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="col-md-2"> <!-- 添加空白列 -->
+            <!-- 这里可以添加其他内容 -->
+        </div>
+    </div> 
+        <!-- 推荐小说 -->
     <section class="recommend-novels mb-4">
         <div class="card">
             <div class="card-header bg-primary text-white">
@@ -117,4 +138,5 @@
         </div>
     </section>
 </div>
+
 {% endblock %}

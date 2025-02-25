@@ -38,12 +38,14 @@ class Chapter(models.Model):
     novel = models.ForeignKey(Novel, on_delete=models.CASCADE, related_name='chapters', verbose_name='小说')
     title = models.CharField(max_length=255, verbose_name='章节标题')
     content = models.TextField(verbose_name='章节内容')
-    created_at = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    order = models.IntegerField(default=0, verbose_name='排序', db_index=True)
 
     class Meta:
         verbose_name = '章节'
         verbose_name_plural = '章节'
-        ordering = ['id']
+        ordering = ['order', 'id']
         unique_together = ['novel', 'title']
 
     def __str__(self):

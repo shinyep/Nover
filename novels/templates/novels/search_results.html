@@ -1,0 +1,71 @@
+{% extends 'novels/base.html' %}
+
+{% block title %}搜索结果: {{ query }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-9">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>搜索结果: "{{ query }}"</h3>
+                    <p>找到 {{ novel_count }} 本小说和 {{ chapter_count }} 个章节</p>
+                </div>
+                
+                {% if novels %}
+                <div class="card-body">
+                    <h4>小说</h4>
+                    <div class="row">
+                        {% for novel in novels %}
+                        <div class="col-md-4 mb-3">
+                            <div class="novel-card">
+                                <a href="{% url 'novels:novel_detail' novel.id %}">
+                                    {% if novel.cover %}
+                                    <img src="{{ novel.cover }}" alt="{{ novel.title }}" class="novel-cover">
+                                    {% else %}
+                                    <div class="novel-cover-placeholder">无封面</div>
+                                    {% endif %}
+                                    <div class="novel-info">
+                                        <h5 class="novel-title">{{ novel.title }}</h5>
+                                        <p class="novel-author">{{ novel.author }}</p>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if chapters %}
+                <div class="card-body">
+                    <h4>章节</h4>
+                    <div class="list-group">
+                        {% for chapter in chapters %}
+                        <a href="{% url 'novels:chapter_detail' chapter.id %}" class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h5 class="mb-1">{{ chapter.title }}</h5>
+                            </div>
+                            <p class="mb-1">所属小说: {{ chapter.novel.title }}</p>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if not novels and not chapters %}
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        没有找到与 "{{ query }}" 相关的内容。请尝试其他关键词。
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            {% include 'novels/sidebar.html' %}
+        </div>
+    </div>
+</div>
+{% endblock %} 
