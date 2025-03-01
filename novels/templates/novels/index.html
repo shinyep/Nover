@@ -1,10 +1,11 @@
 {% extends "novels/base.html" %}
+{% load custom_filters %}
 
 {% block content %}
 
 <div class="container">
      <!-- 导航栏 -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-2 py-1 px-2">
         <a class="navbar-brand" href="{% url 'novels:index' %}"></a>
         <div class="collapse navbar-collapse">
             <ul class="navbar-nav">
@@ -18,8 +19,8 @@
     </nav>
 
         <!-- 搜索框 -->
-    <div class="row mb-4">
-        <div class="col-md-10"> <!-- 修改为 col-md-10 -->
+    <div class="search-container" style="padding: 0 20px;">
+        <div class="search-wrapper" style="width: calc(100% - 40px);">
             <div class="search-box">
                 <form action="{% url 'novels:search' %}" method="GET" class="search-form">
                     <div class="input-group">
@@ -49,11 +50,7 @@
                     <div class="col-md-3 mb-3">
                         <div class="novel-card">
                             <div class="novel-cover">
-                                {% if novel.cover %}
-                                    <img src="{{ novel.cover }}" alt="{{ novel.title }}">
-                                {% else %}
-                                    <div class="no-cover">暂无封面</div>
-                                {% endif %}
+                                <img src="{{ novel|get_cover }}" class="img-fluid" alt="{{ novel.title }}的封面">
                             </div>
                             <div class="novel-info">
                                 <h3 class="novel-title">
@@ -87,11 +84,7 @@
                     {% for novel in latest_novels %}
                     <div class="novel-card">
                         <div class="novel-cover">
-                            {% if novel.cover %}
-                                <img src="{{ novel.cover }}" alt="{{ novel.title }}">
-                            {% else %}
-                                <div class="no-cover">暂无封面</div>
-                            {% endif %}
+                            <img src="{{ novel|get_cover }}" class="img-fluid" alt="{{ novel.title }}的封面">
                         </div>
                         <div class="novel-info">
                             <h3 class="novel-title">

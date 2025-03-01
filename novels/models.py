@@ -14,6 +14,7 @@ class Novel(models.Model):
     title = models.CharField(max_length=255, unique=True, verbose_name='标题')
     author = models.CharField(max_length=50, verbose_name="作者")
     cover = models.URLField(max_length=500, null=True, blank=True, verbose_name='封面')
+    _default_cover_cache = None  # 内存中的封面缓存
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='novels', verbose_name="分类")
     intro = models.TextField(verbose_name="简介")
     is_recommend = models.BooleanField(default=False, verbose_name="是否推荐")

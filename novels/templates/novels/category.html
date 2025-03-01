@@ -1,4 +1,5 @@
 {% extends "novels/base.html" %}
+{% load custom_filters %}
 {% block content %}
 <div class="container">
     <h2>{{ category.name }}</h2>
@@ -7,13 +8,7 @@
         {% for novel in page_obj %}
         <div class="col-md-3 mb-4">
             <div class="card">
-                {% if novel.cover %}
-                    <img src="{{ novel.cover.url }}" class="card-img-top" alt="{{ novel.title }}">
-                {% else %}
-                    <div class="card-img-top bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 200px;">
-                        <span>暂无封面</span>
-                    </div>
-                {% endif %}
+                <img src="{{ novel|get_cover }}" class="card-img-top" alt="{{ novel.title }}">
                 <div class="card-body">
                     <h5 class="card-title">{{ novel.title }}</h5>
                     <p class="card-text">

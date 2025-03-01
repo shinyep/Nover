@@ -279,7 +279,7 @@ body {
 
 .latest-chapters .chapter-item:hover {
     background-color: #f8f9fa;
-    border-color: #007bff;
+    border-color: #007bff; /*007bff*/
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
@@ -691,6 +691,9 @@ body {
     padding: 15px;
     border-radius: 5px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
 }
 
 .search-form .form-control {

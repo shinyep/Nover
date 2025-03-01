@@ -9,11 +9,11 @@ from pyppeteer import launch
 from pyppeteer_stealth import stealth
 from asgiref.sync import sync_to_async
 import time
-from fake_useragent import UserAgent  
+from fake_useragent import UserAgent
 
 # 配置信息
 BASE_URL = "https://d3syerwqkywh2y.cloudfront.net/"
-LIST_PAGE_URL = "https://d3syerwqkywh2y.cloudfront.net/nov/6_0_3_popular_2/%E6%96%87%E5%AD%A6%E5%B0%8F%E8%AF%B4/%E5%85%A8%E9%83%A8.html"
+LIST_PAGE_URL = "https://d3syerwqkywh2y.cloudfront.net/nov/6_0_3_popular_9/%E6%96%87%E5%AD%A6%E5%B0%8F%E8%AF%B4/%E5%85%A8%E9%83%A8.html"
 
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -51,6 +51,20 @@ class Command(BaseCommand):
         self.ua = UserAgent()
         self.last_request_time = time.time()
 
+    def clean_chapter_title(self, title):
+        """清理章节标题，去除时间戳格式和多余空白"""
+        # 去除时间戳格式（如：2024-10-21 21:01:22）
+        title = re.sub(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}', '', title)
+        # 去除可能的其他时间格式
+        title = re.sub(r'\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}', '', title)
+        # 去除首尾空白和特殊字符
+        title = title.strip().replace('\u3000', ' ')
+        # 处理连续空格
+        title = re.sub(r'\s+', ' ', title)
+        # 去除开头结尾的特殊字符（如"|"）
+        title = re.sub(r'^[\s|_\-]+|[\s|_\-]+$', '', title)
+        return title
+        
     def extract_chapter_number(self, title):
         """从章节标题中提取章节序号"""
         match = re.search(r'第(\d+)章', title)
@@ -258,8 +272,21 @@ class Command(BaseCommand):
                             if (typeof c === 'string') {
                                 try { c = JSON.parse(c); } catch (e) {}
                             }
+                            // 过滤时间戳格式（多种格式）
+                            let cleanTitle = (c.title || c.name || '');
+                            // 处理YYYY-MM-DD HH:MM:SS格式
+                            cleanTitle = cleanTitle.replace(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/g, '');
+                            // 处理MM/DD/YYYY HH:MM格式
+                            cleanTitle = cleanTitle.replace(/\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}/g, '');
+                            // 去除首尾空白和特殊字符
+                            cleanTitle = cleanTitle.trim().replace(/^[\s|_\-]+|[\s|_\-]+$/g, '');
+                            // 处理连续空格
+                            cleanTitle = cleanTitle.replace(/\s+/g, ' ');
+                            // 去除全角空格
+                            cleanTitle = cleanTitle.replace(/\u3000/g, ' ');
+                            
                             return JSON.stringify({
-                                title: c.title || c.name || '',
+                                title: cleanTitle,
                                 url: c.url || c.link || c.href || ''
                             });
                         }))).map(c => JSON.parse(c)).filter(c => c.title && c.url);
@@ -352,16 +379,22 @@ class Command(BaseCommand):
         max_retries = 3
         retry_count = 0
         
-        # 首先检查章节是否已存在
+        # 清理章节标题
+        clean_title = self.clean_chapter_title(chapter_info['title'])
+        
+        # 首先检查章节是否已存在 (使用清理后的标题)
         existing_chapter = await sync_to_async(lambda: Chapter.objects.filter(
-            novel=novel, 
-            title=chapter_info['title']
+            novel=novel,
+            title=clean_title
         ).first())()
         
         if existing_chapter:
             # 如果章节已存在，直接跳过
-            self.print_status("章节处理", f"章节已存在，跳过：{chapter_info['title']} ({idx}/{total})", "info")
+            self.print_status("章节处理", f"章节已存在，跳过：{clean_title} ({idx}/{total})", "info")
             return True
+            
+        # 更新章节标题为清理后的标题
+        chapter_info['title'] = clean_title
         
         while retry_count < max_retries:
             try:
@@ -389,10 +422,13 @@ class Command(BaseCommand):
                     # 使用章节信息中的order值（如果有）
                     chapter_order = chapter_info.get('order', self.extract_chapter_number(chapter_info['title']))
                     
+                    # 清理章节标题
+                    clean_title = self.clean_chapter_title(chapter_info['title'])
+                    
                     # 创建新章节
                     await sync_to_async(Chapter.objects.create)(
                         novel=novel,
-                        title=chapter_info['title'],
+                        title=clean_title,
                         content=content,
                         order=chapter_order  # 使用正确的排序值
                     )
@@ -468,14 +504,22 @@ class Command(BaseCommand):
         self.print_status("章节信息", f"数据库中已有 {len(db_chapters)} 章", "info")
         self.print_status("章节对比", f"发现 {len(all_chapters) - len(db_chapters)} 章需要更新", "info")
         
+        # 清理all_chapters中的标题
+        cleaned_all_chapters = []
+        for chapter in all_chapters:
+            cleaned_chapter = chapter.copy()
+            cleaned_chapter['title'] = self.clean_chapter_title(chapter['title'])
+            cleaned_chapter['original_title'] = chapter['title']  # 保留原始标题用于调试
+            cleaned_all_chapters.append(cleaned_chapter)
+        
         # 如果章节数量相同，可能不需要更新
-        if len(all_chapters) == len(db_chapters) and all(c['title'] in db_chapter_titles for c in all_chapters):
+        if len(cleaned_all_chapters) == len(db_chapters) and all(c['title'] in db_chapter_titles for c in cleaned_all_chapters):
             self.print_status("章节完整性", "章节数量相同且标题匹配，无需更新", "success")
             return
         
         # 找出缺失的章节
         missing_chapters = []
-        for chapter in all_chapters:
+        for chapter in cleaned_all_chapters:
             if chapter['title'] not in db_chapter_titles:
                 chapter['number'] = self.extract_chapter_number(chapter['title'])
                 # 检查是否是番外章节
@@ -579,12 +623,15 @@ class Command(BaseCommand):
                         }''')
 
                         if content:
-                            # 提取章节序号
-                            chapter_num = self.extract_chapter_number(chapter_info['title'])
+                            # 清理章节标题
+                            clean_title = self.clean_chapter_title(chapter_info['title'])
+                            
+                            # 提取章节序号（使用清理后的标题）
+                            chapter_num = self.extract_chapter_number(clean_title)
                             
                             await sync_to_async(Chapter.objects.create)(
                                 novel=novel,
-                                title=chapter_info['title'],
+                                title=clean_title,
                                 content=content,
                                 order=chapter_num  # 设置排序值
                             )

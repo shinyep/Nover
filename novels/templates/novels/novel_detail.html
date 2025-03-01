@@ -1,4 +1,5 @@
 {% extends "novels/base.html" %}
+{% load custom_filters %}
 
 {% block content %}
 <div class="container">
@@ -17,11 +18,7 @@
                 <!-- 封面 -->
                 <div class="col-md-3">
                     <div class="novel-cover">
-                        {% if novel.cover %}
-                            <img src="{{ novel.cover }}" class="img-fluid" alt="{{ novel.title }}">
-                        {% else %}
-                            <div class="no-cover">暂无封面</div>
-                        {% endif %}
+                        <img src="{{ novel|get_cover }}" class="img-fluid" alt="{{ novel.title }}">
                     </div>
                 </div>
 

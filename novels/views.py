@@ -5,7 +5,6 @@ from .models import Novel, Chapter, Category, FilterWord
 from django.core.paginator import Paginator
 from django.views.generic import DetailView
 from django.http import HttpResponse
-import os
 from urllib.parse import quote
 from django.db.models import Q
 
@@ -26,30 +25,29 @@ def get_common_data():
     
     return {
         'categories': categories,
-        'recommend_novels': recommend_novels
+        'recommend_novels': recommend_novels,
     }
 
 def index(request):
-    # 获取推荐小说
-    recommended_novels = Novel.objects.filter(is_recommend=True).order_by('-updated_at')[:6]
-    
-    # 获取最新小说
-    latest_novels = Novel.objects.order_by('-created_at')[:12]
-    
-    # 获取最新章节
-    latest_chapters = Chapter.objects.select_related('novel').order_by('-created_at')[:10]
-    
-    # 获取所有分类
-    categories = Category.objects.all()
-    
-    context = {
-        'recommended_novels': recommended_novels,
-        'latest_novels': latest_novels,
-        'latest_chapters': latest_chapters,
-        'categories': categories,
-    }
-    
-    return render(request, 'novels/index.html', context)
+    """为每一本小说打造独特的展示空间"""
+    try:
+        # 获取各类小说
+        recommended_novels = Novel.objects.filter(is_recommend=True).order_by('-updated_at')[:6]
+        latest_novels = Novel.objects.order_by('-created_at')[:12]
+        latest_chapters = Chapter.objects.select_related('novel').order_by('-created_at')[:10]
+        categories = Category.objects.all()
+        
+        context = {
+            'recommended_novels': recommended_novels,
+            'latest_novels': latest_novels,
+            'latest_chapters': latest_chapters,
+            'categories': categories,
+        }
+        context.update(get_common_data())
+        
+        return render(request, 'novels/index.html', context)
+    except DatabaseError as e:
+        return HttpResponse(f"数据库错误: {str(e)}", status=500)  # 处理数据库错误
 
 def category(request, category_id):
     category = get_object_or_404(Category, pk=category_id)
@@ -67,19 +65,22 @@ def category(request, category_id):
     context.update(get_common_data())
     return render(request, 'novels/category.html', context)
 
+
 def novel_detail(request, novel_id):
+    """展现小说的独特魅力"""
     novel = get_object_or_404(Novel, id=novel_id)
-    # 确保按order字段排序
     chapters = novel.chapters.all().order_by('order', 'id')
     
     context = {
         'novel': novel,
         'chapters': chapters,
     }
+    context.update(get_common_data())
     
     return render(request, 'novels/novel_detail.html', context)
 
 def chapter_detail(request, chapter_id):
+    """展现章节的优美韵律"""
     chapter = Chapter.objects.select_related('novel').get(id=chapter_id)
     
     # 清理内容
@@ -101,13 +102,19 @@ def chapter_detail(request, chapter_id):
         'prev_chapter': prev_chapter,
         'next_chapter': next_chapter,
     }
+    context.update(get_common_data())
     
     return render(request, 'novels/chapter_detail.html', context)
 
 def latest_novels_view(request):
+    """展现最新小说的绚丽画卷"""
     # 获取最新的小说，使用 updated_at 替代 update_time
     latest_novels = Novel.objects.order_by('-updated_at')[:10]  # 取前10本最新小说
-    return render(request, 'novels/latest_novels.html', {'latest_novels': latest_novels})
+    context = {
+        'latest_novels': latest_novels
+    }
+    context.update(get_common_data())
+    return render(request, 'novels/latest_novels.html', context)
 
 def filter_content(content):
     filter_words = FilterWord.objects.all()
